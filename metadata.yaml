@@ -1,0 +1,13 @@
+name: astrbot_plugin_iona_misc
+display_name: iona 杂项
+short_desc: 自用的零碎调整：完全忽略指定发送者（如其他机器人）的消息
+desc: 收纳个人部署里遇到的特殊情况。目前提供发送者屏蔽：名单内账号的消息在 AstrBot 唤醒检查阶段就被丢弃，不会被转述图片、记入群聊上下文、触发主动回复或占用限流额度。
+version: v0.1.0
+astrbot_version: ">=4.28,<5"
+author: iona-s
+repo: https://github.com/iona-s/astrbot_plugin_iona_misc
+social_link: https://github.com/iona-s
+tags:
+  - 屏蔽
+  - 黑名单
+  - 机器人

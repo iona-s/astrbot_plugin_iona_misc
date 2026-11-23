@@ -1,0 +1,146 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verification:
+    name: Verification (Python 3.12)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      ASTRBOT_ROOT: ${{ github.workspace }}
+      PYTHONPATH: ${{ github.workspace }}/..
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            "astrbot>=4.28,<5" \
+            "pytest>=9,<10" \
+            "pytest-asyncio>=1,<2" \
+            "pytest-cov>=7,<8" \
+            "pre-commit>=4,<5" \
+            "pyyaml>=6,<7" \
+            --requirement requirements.txt
+
+      - name: Check installed dependencies
+        run: python -m pip check
+
+      - name: Run pre-commit
+        run: pre-commit run --all-files --show-diff-on-failure
+
+      - name: Compile Python sources
+        run: python -m compileall -q main.py core tests
+
+      - name: Run tests
+        run: >-
+          python -m pytest
+          --cov=astrbot_plugin_iona_misc
+          --cov-branch
+          --cov-report=term-missing
+
+      - name: Validate release metadata
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          import yaml
+
+          root = Path.cwd()
+          metadata = yaml.safe_load((root / "metadata.yaml").read_text(encoding="utf-8"))
+          required = {
+              "name",
+              "display_name",
+              "short_desc",
+              "desc",
+              "version",
+              "astrbot_version",
+              "author",
+              "repo",
+          }
+          missing = sorted(required - metadata.keys())
+          assert not missing, f"metadata.yaml missing fields: {missing}"
+          assert metadata["name"] == "astrbot_plugin_iona_misc"
+          assert re.fullmatch(r"v\d+\.\d+\.\d+", metadata["version"])
+
+          changelog = (root / "CHANGELOG.md").read_text(encoding="utf-8")
+          heading = re.search(r"^## \[v?(\d+\.\d+\.\d+)\]", changelog, re.MULTILINE)
+          assert heading, "CHANGELOG.md has no release heading"
+          assert heading.group(1) == metadata["version"].removeprefix("v")
+
+          schema = json.loads((root / "_conf_schema.json").read_text(encoding="utf-8"))
+          assert isinstance(schema, dict) and schema
+
+          for relative in ("LICENSE", "README.md", "requirements.txt"):
+              path = root / relative
+              assert path.is_file() and path.stat().st_size > 0, relative
+          PY
+
+  minimum-astrbot:
+    name: Compatibility (AstrBot 4.28.0)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      ASTRBOT_ROOT: ${{ github.workspace }}
+      PYTHONPATH: ${{ github.workspace }}/..
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install minimum supported AstrBot
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            "astrbot==4.28.0" \
+            "pytest>=9,<10" \
+            "pytest-asyncio>=1,<2" \
+            --requirement requirements.txt
+
+      - name: Check installed dependencies
+        run: python -m pip check
+
+      - name: Run tests
+        run: python -m pytest
+
+      - name: Verify AstrBot version and plugin import
+        run: |
+          python - <<'PY'
+          from importlib.metadata import version
+
+          assert version("astrbot") == "4.28.0"
+          from astrbot_plugin_iona_misc.main import IonaMiscPlugin
+
+          assert IonaMiscPlugin.__name__ == "IonaMiscPlugin"
+          PY

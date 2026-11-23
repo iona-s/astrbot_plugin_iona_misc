@@ -1,0 +1,10 @@
+{
+  "sender_block": {
+    "description": "发送者屏蔽",
+    "type": "object",
+    "items": {
+      "enabled": {"type": "bool", "description": "启用发送者屏蔽", "hint": "关闭后名单保留但不生效", "default": true},
+      "sender_ids": {"type": "list", "description": "完全忽略的发送者 ID", "hint": "名单内账号的消息在唤醒检查阶段就被丢弃：不转述图片、不记入群聊上下文、不触发主动回复和任何插件，也不占用会话限流额度。在所有启用了本插件的配置文件里生效，不区分会话。QQ（aiocqhttp）填 QQ 号；QQ 官方机器人平台填该用户的 openid（可用 /sid 查看）", "items": {"type": "string"}, "default": []}
+    }
+  }
+}
